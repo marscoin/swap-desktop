@@ -4,3 +4,9 @@ src-tauri/target/
 src-tauri/binaries/
 dist/
 .DS_Store
+sidecar/dist/
+sidecar/build/
+sidecar/*.spec
+sidecar/libsecp256k1*
+src-tauri/gen/
+src-tauri/icons/

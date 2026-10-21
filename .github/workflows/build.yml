@@ -1,0 +1,128 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      atomicswapd_ref:
+        description: atomicswapd branch, tag or commit
+        default: main
+      electrum_mars_ref:
+        description: Electrum-Mars tag
+        default: v4.4.3
+
+env:
+  ATOMICSWAPD_REF: ${{ github.event.inputs.atomicswapd_ref || 'main' }}
+  ELECTRUM_MARS_REF: ${{ github.event.inputs.electrum_mars_ref || 'v4.4.3' }}
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14            # Apple Silicon; Homebrew libraries target macOS 14
+            name: macos-arm64
+          - os: windows-latest
+            name: windows-x64
+          - os: ubuntu-22.04
+            name: linux-x64
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/checkout@v4
+        with:
+          repository: marscoin/atomicswapd
+          ref: ${{ env.ATOMICSWAPD_REF }}
+          path: atomicswapd
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      # ---- native libraries -------------------------------------------------
+      - name: Linux packages
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libsecp256k1-0 libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+          echo "SECP=/usr/lib/x86_64-linux-gnu/libsecp256k1.so.0" >> "$GITHUB_ENV"
+
+      - name: macOS packages
+        if: runner.os == 'macOS'
+        run: |
+          brew install secp256k1
+          echo "SECP=$(brew --prefix secp256k1)/lib/libsecp256k1.dylib" >> "$GITHUB_ENV"
+
+      - name: Windows libsecp256k1
+        if: runner.os == 'Windows'
+        run: |
+          git clone --depth 1 https://github.com/bitcoin-core/secp256k1.git secp
+          cd secp && mkdir build && cd build
+          cmake -A x64 -DSECP256K1_BUILD_TESTS=OFF -DSECP256K1_BUILD_EXHAUSTIVE_TESTS=OFF \
+                -DSECP256K1_BUILD_BENCHMARK=OFF -DSECP256K1_ENABLE_MODULE_RECOVERY=ON ..
+          cmake --build . --config Release
+          dll="$(find . -name 'libsecp256k1*.dll' | head -1)"
+          echo "SECP=$(cd "$(dirname "$dll")" && pwd -W)/$(basename "$dll")" >> "$GITHUB_ENV"
+
+      # ---- the engine ---------------------------------------------------------
+      - name: Build the dashboard
+        working-directory: atomicswapd/web-src
+        run: npm ci && npm run build
+
+      - name: Install the engine
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "https://github.com/marscoin/electrum-mars/archive/refs/tags/${ELECTRUM_MARS_REF}.tar.gz" \
+            scrypt cryptography pyinstaller
+          python -m pip install ./atomicswapd
+          python -c "import atomicswapd, electrum_mars, scrypt; print('engine importable')"
+
+      - name: Freeze the engine
+        run: sidecar/build.sh "$SECP"
+
+      - name: Smoke test the engine (desktop mode starts and locks its API)
+        run: |
+          bin="$(ls src-tauri/binaries/atomicswapd-*)"
+          "$bin" --version
+          export ATOMICSWAPD_DATA="$RUNNER_TEMP/engine-data" ATOMICSWAPD_SESSION_TOKEN="$(printf 'a%.0s' $(seq 64))"
+          (sleep 25 | "$bin" --no-node --desktop --port 0 > engine.log 2>&1) &
+          for i in $(seq 1 60); do grep -q ATOMICSWAPD_READY engine.log 2>/dev/null && break; sleep 1; done
+          cat engine.log
+          url="$(grep -o 'http://127.0.0.1:[0-9]*' engine.log | head -1)"
+          test -n "$url"
+          test "$(curl -s -o /dev/null -w '%{http_code}' "$url/api/snapshot")" = 401
+          test "$(curl -s -o /dev/null -w '%{http_code}' "$url/")" = 200
+          echo "engine OK at $url"
+
+      # ---- the app ------------------------------------------------------------
+      - name: Build the app
+        run: |
+          npm ci
+          npx tauri icon app-icon.png
+          npx tauri build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mars-swap-${{ matrix.name }}
+          path: |
+            src-tauri/target/release/bundle/dmg/*.dmg
+            src-tauri/target/release/bundle/macos/*.app
+            src-tauri/target/release/bundle/nsis/*.exe
+            src-tauri/target/release/bundle/msi/*.msi
+            src-tauri/target/release/bundle/appimage/*.AppImage
+            src-tauri/target/release/bundle/deb/*.deb
+          if-no-files-found: error

@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mars Swap</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #07070c; color: #ecebf3;
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif; }
+  body { display: grid; place-items: center; }
+  .box { text-align: center; max-width: 460px; padding: 24px; }
+  .planet { width: 72px; height: 72px; margin: 0 auto 22px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #ff8a5c, #d8461f 55%, #6e1c0b);
+    box-shadow: 0 0 60px rgba(255, 106, 61, .35); animation: breathe 2.4s ease-in-out infinite; }
+  @keyframes breathe { 50% { box-shadow: 0 0 90px rgba(255, 106, 61, .6); } }
+  h1 { font-size: 20px; margin: 0 0 8px; font-weight: 600; letter-spacing: .3px; }
+  p { color: #9897ad; font-size: 13.5px; line-height: 1.55; margin: 0; }
+  .err { color: #ff5470; margin-top: 14px; display: none; }
+</style>
+</head>
+<body>
+  <div class="box">
+    <div class="planet"></div>
+    <h1>Starting the swap engine…</h1>
+    <p>Mars Swap runs its own Marscoin node on this computer. The first start downloads and checks the block headers, which takes a while; the dashboard opens as soon as the engine is up and shows the progress.</p>
+    <p class="err" id="err"></p>
+  </div>
+  <script>
+    window.engineStopped = function (code) {
+      var e = document.getElementById('err');
+      e.textContent = 'The swap engine stopped (exit code ' + code + '). Restart Mars Swap; if this keeps happening, please report it on GitHub.';
+      e.style.display = 'block';
+    };
+  </script>
+</body>
+</html>
