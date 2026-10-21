@@ -86,7 +86,7 @@ The interface and the engine's desktop mode live in the atomicswapd repository, 
 
 ## Milestones
 
-1. **Shell + engine, watch only.** The app starts the bundled engine and shows the live market from the user's machine. Unsigned CI builds for macOS, Windows and Linux.
+1. **Shell + engine, watch only.** *(done)* The app starts the bundled engine and shows the live market from the user's machine. Unsigned CI builds for macOS, Windows and Linux. The engine stops by itself when the app quits.
 2. **Wallet.** Create or restore, balance, receive. Token-protected write API.
 3. **Buy MARS.** The full taker flow, including refunds.
 4. **Sell MARS.** Auto-Maker controls.
