@@ -89,7 +89,18 @@ jobs:
           python -m pip install "https://github.com/marscoin/electrum-mars/archive/refs/tags/${ELECTRUM_MARS_REF}.tar.gz" \
             scrypt cryptography pyinstaller
           python -m pip install ./atomicswapd
-          python -c "import atomicswapd, electrum_mars, scrypt; print('engine importable')"
+
+      - name: Put libsecp256k1 next to Electrum-Mars
+        run: |
+          # Electrum-Mars loads it on import, from its own folder first.
+          pkg="$(python -c "import importlib.util, os; print(os.path.dirname(importlib.util.find_spec('electrum_mars').origin))")"
+          case "$RUNNER_OS" in
+            macOS)   name=libsecp256k1.0.dylib ;;
+            Windows) name=libsecp256k1-0.dll ;;
+            *)       name=libsecp256k1.so.0 ;;
+          esac
+          cp "$SECP" "$pkg/$name"
+          python -m atomicswapd selftest
 
       - name: Freeze the engine
         run: sidecar/build.sh "$SECP"
@@ -98,6 +109,7 @@ jobs:
         run: |
           bin="$(ls src-tauri/binaries/atomicswapd-*)"
           "$bin" --version
+          "$bin" selftest
           export ATOMICSWAPD_DATA="$RUNNER_TEMP/engine-data" ATOMICSWAPD_SESSION_TOKEN="$(printf 'a%.0s' $(seq 64))"
           (sleep 25 | "$bin" --no-node --desktop --port 0 > engine.log 2>&1) &
           for i in $(seq 1 60); do grep -q ATOMICSWAPD_READY engine.log 2>/dev/null && break; sleep 1; done

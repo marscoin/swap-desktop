@@ -25,7 +25,7 @@ ROOT="$(pwd -W 2>/dev/null || pwd)"
 cp "$SECP" "sidecar/$SECP_NAME"
 pyinstaller --noconfirm --clean --onefile --name atomicswapd \
   --distpath sidecar/dist --workpath sidecar/build --specpath sidecar \
-  --collect-submodules electrum_mars \
+  --collect-submodules electrum_mars.plugins.atomic_swap \
   --collect-data electrum_mars \
   --collect-data atomicswapd \
   --hidden-import _scrypt \
