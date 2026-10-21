@@ -1,5 +1,7 @@
 # Mars Swap Desktop
 
+![Mars Swap on macOS: the live MARS/BTC market, order book, a quote and the settlement timeline, from a Marscoin node on your own computer](docs/mars-swap.png)
+
 A desktop app for trading Bitcoin and Marscoin through atomic swaps, with no exchange and no custody. It looks like [swaps.marscoin.org](https://swaps.marscoin.org) and does what a web page can't do safely: it holds your keys, checks the seller's lock on your own copy of the Marscoin chain, and finishes or refunds every swap by itself.
 
 > **Status: milestone 1 of 5.**
